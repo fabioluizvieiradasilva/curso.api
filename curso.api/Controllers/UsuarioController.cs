@@ -1,12 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
+using curso.api.Business.Repositories;
 using curso.api.Filter;
 using curso.api.Models;
 using curso.api.Models.Usuarios;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace curso.api.Controllers
@@ -15,6 +20,7 @@ namespace curso.api.Controllers
     [ApiController]
     public class UsuarioController : ControllerBase
     {
+        IUsuarioRepository usuarioRepository;
         /// <summary>
         /// Este serviço permite autenticar um usuário cadastrado e ativo.
         /// </summary>
@@ -28,7 +34,35 @@ namespace curso.api.Controllers
         [ValidacaoModelStateCustomizado]
         public IActionResult Logar(LoginViewModelInput loginViewModelInput)
         {
-            return Ok(loginViewModelInput);
+            var usuarioViewModelOutput = new UsuarioViewModelOutput()
+            {
+                Codigo = 1,
+                Login = "fabio",
+                Email = "fabinvieira@gmail.com"
+            };
+            var secret = Encoding.ASCII.GetBytes("laksdjan,cxnljoeu00q-qoáldãcaasjdaln0918301");
+            var symmetricSecurityKey = new SymmetricSecurityKey(secret);
+            var securityTokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new Claim[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, usuarioViewModelOutput.Codigo.ToString()),
+                    new Claim(ClaimTypes.Name, usuarioViewModelOutput.Login.ToString()),
+                    new Claim(ClaimTypes.Email, usuarioViewModelOutput.Email.ToString()),
+                }),
+                Expires = DateTime.UtcNow.AddDays(1),
+                SigningCredentials = new SigningCredentials(symmetricSecurityKey, SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
+            var tokenGenerated = jwtSecurityTokenHandler.CreateToken(securityTokenDescriptor);
+            var token = jwtSecurityTokenHandler.WriteToken(tokenGenerated);
+
+            return Ok(new
+            {
+                Tokn =token,
+                Usuario = usuarioViewModelOutput
+            });
         }
 
         [HttpPost]
@@ -36,6 +70,7 @@ namespace curso.api.Controllers
         [ValidacaoModelStateCustomizado]
         public IActionResult Registrar(RegistroViewModelInput registroViewModelInput)
         {
+            this.usuarioRepository.Adicionar(usuario);
             return Created("", registroViewModelInput);
         }
     }
